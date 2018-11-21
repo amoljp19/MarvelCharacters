@@ -15,6 +15,7 @@ import com.softaai.marvelcharacters.di.ViewModelFactory
 import com.softaai.marvelcharacters.model.Model
 import com.softaai.marvelcharacters.ui.characters.adapter.CharactersAdapter
 import com.softaai.marvelcharacters.utils.HashUtils
+import com.softaai.marvelcharacters.utils.ScrollUtils
 
 
 /**
@@ -41,7 +42,15 @@ class CharacterListActivity: AppCompatActivity(), CharacterListViewModel.Charact
 
         viewModel.loadCharacters(this)
 
-        binding.characterList.addOnScrollListener(HashUtils.InfiniteScrollListener({ viewModel.loadMoreCharacters(this,  binding.characterList.adapter as CharactersAdapter) },
+    }
+
+    override fun onResume(){
+        super.onResume()
+
+        binding.characterList.addOnScrollListener(
+            ScrollUtils.InfiniteScrollListener({ viewModel.loadMoreCharacters(this,
+            binding.characterList.adapter as CharactersAdapter
+        ) },
             binding.characterList.layoutManager as LinearLayoutManager
         ))
 
@@ -49,7 +58,6 @@ class CharacterListActivity: AppCompatActivity(), CharacterListViewModel.Charact
 
     private fun showError(@StringRes errorMessage:Int){
         errorSnackbar = Snackbar.make(binding.root, errorMessage, Snackbar.LENGTH_INDEFINITE)
-        errorSnackbar?.setAction(R.string.retry, viewModel.errorClickListener)
         errorSnackbar?.show()
     }
     private fun hideError(){

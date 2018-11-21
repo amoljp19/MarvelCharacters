@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import android.view.View
 import com.softaai.marvelcharacters.BuildConfig
+import com.softaai.marvelcharacters.R
 import com.softaai.marvelcharacters.base.BaseViewModel
 import com.softaai.marvelcharacters.model.Model
 import com.softaai.marvelcharacters.network.MarvelApi
@@ -12,10 +13,13 @@ import com.softaai.marvelcharacters.ui.CharacterListActivity
 import com.softaai.marvelcharacters.ui.characters.adapter.CharactersAdapter
 import com.softaai.marvelcharacters.utils.HashUtils
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 import java.util.*
 import javax.inject.Inject
+
+
 
 
 /**
@@ -28,6 +32,8 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
     lateinit var marvelApi: MarvelApi
 
     private lateinit var subscription: Disposable
+
+    private var compositeDisposable: CompositeDisposable = CompositeDisposable()
 
 
 
@@ -42,11 +48,7 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
 
     interface CharacterListActivityViewModel { fun endCallProgress(any: Any?) }
 
-    val errorClickListener = View.OnClickListener { }
-
-
-
-     fun loadCharacters(callback: CharacterListActivityViewModel){
+    fun loadCharacters(callback: CharacterListActivityViewModel){
         val timestamp = Date().time;
         val hash = HashUtils.md5(timestamp.toString()+ BuildConfig.MARVEL_PRIVATE_KEY+BuildConfig.MARVEL_PUBLIC_KEY)
 
@@ -61,8 +63,12 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
                     countLimit = c.data.limit
                 },
                 { e -> callback.endCallProgress(e)
-                    Log.e(CharacterListActivity::class.java.simpleName, e.message) }
+                    Log.e(CharacterListActivity::class.java.simpleName, e.message)
+                    onRetrieveCharacterListError()}
             )
+
+
+        compositeDisposable.add(subscription)
 
     }
 
@@ -70,7 +76,7 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
         val timestamp = Date().time;
         val hash = HashUtils.md5(timestamp.toString()+ BuildConfig.MARVEL_PRIVATE_KEY+BuildConfig.MARVEL_PUBLIC_KEY)
 
-        subscription = marvelApi.getCharacters(timestamp.toString(), BuildConfig.MARVEL_PUBLIC_KEY, hash, defaultLimit)
+        subscription = marvelApi.getCharacters(timestamp.toString(), BuildConfig.MARVEL_PUBLIC_KEY, hash, countLimit + defaultLimit)
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
             .doOnSubscribe { onRetrieveCharacterListStart() }
@@ -79,8 +85,11 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
                 {  c -> callback.endCallProgress(c)
                     updateIndexesForRequests(adapter, c)},
                 { e -> callback.endCallProgress(e)
-                    Log.e(CharacterListActivity::class.java.simpleName, e.message) }
+                    Log.e(CharacterListActivity::class.java.simpleName, e.message)
+                    onRetrieveCharacterListError() }
             )
+
+         compositeDisposable.add(subscription)
     }
 
     private fun onRetrieveCharacterListStart(){
@@ -93,6 +102,10 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
         loadingVisibility.value = View.GONE
     }
 
+    private fun onRetrieveCharacterListError(){
+        errorMessage.value = R.string.post_error
+    }
+
     fun updateIndexesForRequests(adapter: CharactersAdapter, response: Model.CharacterResponse) {
         adapter.characterResponse = response
         adapter.notifyItemRangeChanged(countLimit, countLimit + defaultLimit)
@@ -103,6 +116,6 @@ class CharacterListViewModel(val context: Context):BaseViewModel(){
 
     override fun onCleared() {
         super.onCleared()
-        subscription.dispose()
+        compositeDisposable.dispose()
     }
 }
